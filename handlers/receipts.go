@@ -21,10 +21,11 @@ func UploadReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Simulate user ID
+	// Extract user ID from headers
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
-		userID = "test-user"
+		http.Error(w, "X-User-ID header is required", http.StatusBadRequest)
+		return
 	}
 
 	// Save the file using the service layer
@@ -41,4 +42,36 @@ func UploadReceipt(w http.ResponseWriter, r *http.Request) {
 	// Return the receipt ID
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Receipt uploaded successfully with ID: %s", receiptID)))
+}
+
+// GetReceipt retrieves a receipt by ID and serves the file if the user is authorized
+func GetReceipt(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract user ID from headers
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "X-User-ID header is required", http.StatusBadRequest)
+		return
+	}
+
+	// Extract the receipt ID from the URL path
+	receiptID := strings.TrimPrefix(r.URL.Path, "/receipts/")
+	receipt, exists := models.GetReceipt(receiptID)
+	if !exists {
+		http.Error(w, "Receipt not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if the user owns the receipt
+	if receipt.UserID != userID {
+		http.Error(w, "Unauthorized", http.StatusForbidden)
+		return
+	}
+
+	// Serve the receipt file
+	http.ServeFile(w, r, receipt.FilePath)
 }

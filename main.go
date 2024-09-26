@@ -23,6 +23,7 @@ func main() {
 
 	// Define routes
 	http.HandleFunc("/receipts", handlers.UploadReceipt) // POST /receipts to upload
+	http.HandleFunc("/receipts/", handlers.GetReceipt)   // GET /receipts/{receipt_id} to retrieve
 
 	// Start server
 	log.Println("Server running on :8080")
