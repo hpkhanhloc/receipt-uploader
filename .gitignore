@@ -1,2 +1,5 @@
 # Ignore the uploads directory
 uploads/
+
+# Ignore receipts JSON file
+receipts.json

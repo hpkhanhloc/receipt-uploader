@@ -18,7 +18,7 @@ func SaveFile(r *http.Request) (string, error) {
 		return "", err
 	}
 
-	file, handler, err := r.FormFile("File")
+	file, handler, err := r.FormFile("file")
 	if err != nil {
 		log.Println("Error retrieving file from request:", err)
 		return "", err
