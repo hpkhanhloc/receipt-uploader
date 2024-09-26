@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-const uploadDir = "../uploads"
+const uploadDir = "uploads"
 
 // Setup function to create the uploads directory before tests
 func setupTestEnvironment() error {
