@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"receipt-uploader/models"
@@ -35,7 +36,11 @@ func UploadReceipt(w http.ResponseWriter, r *http.Request) {
 	// Save the file using the service layer
 	filePath, err := services.SaveFile(r)
 	if err != nil {
-		http.Error(w, "Could not save file", http.StatusInternalServerError)
+		if errors.Is(err, services.ErrInvalidImage) {
+			http.Error(w, "Uploaded file is not a valid image", http.StatusBadRequest)
+		} else {
+			http.Error(w, "Could not save file", http.StatusInternalServerError)
+		}
 		return
 	}
 
