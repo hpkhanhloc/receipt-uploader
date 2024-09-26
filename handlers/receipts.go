@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"receipt-uploader/models"
@@ -74,4 +75,30 @@ func GetReceipt(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the receipt file
 	http.ServeFile(w, r, receipt.FilePath)
+}
+
+// ListReceipts lists all receipts for the authenticated user
+func ListReceipts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract user ID from the X-User-ID header
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "X-User-ID header is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get the list of receipts for the user
+	receipts := models.ListUserReceipts(userID)
+	if len(receipts) == 0 {
+		http.Error(w, "No receipts found for this user", http.StatusNotFound)
+		return
+	}
+
+	// Return the full list of receipts as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(receipts)
 }

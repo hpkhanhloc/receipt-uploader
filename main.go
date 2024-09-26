@@ -22,12 +22,24 @@ func main() {
 	}
 
 	// Define routes
-	http.HandleFunc("/receipts", handlers.UploadReceipt) // POST /receipts to upload
-	http.HandleFunc("/receipts/", handlers.GetReceipt)   // GET /receipts/{receipt_id} to retrieve
+	http.HandleFunc("/receipts", handleReceipts)       // unified route for both POST and GET methods on /receipts
+	http.HandleFunc("/receipts/", handlers.GetReceipt) // GET /receipts/{receipt_id} to retrieve
 
 	// Start server
 	log.Println("Server running on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Could not start server: %v", err)
+	}
+}
+
+// handleReceipts handles both POST (upload) and GET (list receipts) methods on /receipts
+func handleReceipts(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		handlers.UploadReceipt(w, r)
+	case http.MethodGet:
+		handlers.ListReceipts(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
