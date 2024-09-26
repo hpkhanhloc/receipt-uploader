@@ -100,16 +100,22 @@ func GetReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Process the image (open, decode, and resize)
-	img, err := services.ProcessImage(receipt.FilePath, width, height)
-	if err != nil {
+	// Channel to receive the result of the image processing
+	resultCh := make(chan services.Result)
+
+	// Process the image concurrently
+	services.ProcessImageConcurrently(receipt.FilePath, width, height, resultCh)
+
+	// Wait for the result from the channel
+	res := <-resultCh
+	if res.Err != nil {
 		http.Error(w, "Could not process image", http.StatusInternalServerError)
 		return
 	}
 
 	// Serve the resized image back to the client
 	w.Header().Set("Content-Type", "image/jpeg")
-	err = imaging.Encode(w, img, imaging.JPEG)
+	err = imaging.Encode(w, res.Img, imaging.JPEG)
 	if err != nil {
 		http.Error(w, "Could not encode resized image", http.StatusInternalServerError)
 		return
