@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"receipt-uploader/models"
 	"receipt-uploader/services"
+	"strconv"
 	"strings"
+
+	"github.com/disintegration/imaging"
 )
 
 // UploadReceipt handles the uploading of receipt images
@@ -73,8 +76,39 @@ func GetReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Serve the receipt file
-	http.ServeFile(w, r, receipt.FilePath)
+	// Parse optional width and height query parameters
+	width, err := parseQueryParameter(r.URL.Query().Get("width"), "width")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	height, err := parseQueryParameter(r.URL.Query().Get("height"), "height")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// If neither width nor height is provided, serve the original image
+	if width == 0 && height == 0 {
+		http.ServeFile(w, r, receipt.FilePath)
+		return
+	}
+
+	// Process the image (open, decode, and resize)
+	img, err := services.ProcessImage(receipt.FilePath, width, height)
+	if err != nil {
+		http.Error(w, "Could not process image", http.StatusInternalServerError)
+		return
+	}
+
+	// Serve the resized image back to the client
+	w.Header().Set("Content-Type", "image/jpeg")
+	err = imaging.Encode(w, img, imaging.JPEG)
+	if err != nil {
+		http.Error(w, "Could not encode resized image", http.StatusInternalServerError)
+		return
+	}
 }
 
 // ListReceipts lists all receipts for the authenticated user
@@ -101,4 +135,22 @@ func ListReceipts(w http.ResponseWriter, r *http.Request) {
 	// Return the full list of receipts as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(receipts)
+}
+
+// parseQueryParameter parses a query parameter and returns its integer value
+func parseQueryParameter(paramStr, paramName string) (int, error) {
+	if paramStr == "" {
+		return 0, nil // If the parameter is not provided, return 0
+	}
+
+	value, err := strconv.Atoi(paramStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s parameter", paramName)
+	}
+
+	if value < 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", paramName)
+	}
+
+	return value, nil
 }
