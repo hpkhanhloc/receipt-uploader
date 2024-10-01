@@ -2,13 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"receipt-uploader/models"
 	"receipt-uploader/services"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/disintegration/imaging"
 )
@@ -33,24 +34,58 @@ func UploadReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save the file using the service layer
-	filePath, err := services.SaveFile(r)
+	// Parse the multipart form
+	err := r.ParseMultipartForm(10 << 20) // Max 10MB
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidImage) {
-			http.Error(w, "Uploaded file is not a valid image", http.StatusBadRequest)
-		} else {
-			http.Error(w, "Could not save file", http.StatusInternalServerError)
-		}
+		http.Error(w, "Error parsing multipart form", http.StatusBadRequest)
 		return
 	}
 
-	// Generate a unique receipt ID and store the receipt metadata
-	receiptID := services.GenerateReceiptID()
-	models.StoreReceipt(receiptID, filePath, userID)
+	// Retrieve all files from the form
+	files := r.MultipartForm.File["file"]
+	if len(files) == 0 {
+		http.Error(w, "No files uploaded", http.StatusBadRequest)
+		return
+	}
 
-	// Return the receipt ID
+	var wg sync.WaitGroup // WaitGroup to wait for all goroutines to finish
+	receiptIDs := make([]string, len(files))
+	errs := make([]error, len(files))
+
+	// Process each file concurrently
+	for i, fileHeader := range files {
+		wg.Add(1)
+		go func(i int, fileHeader *multipart.FileHeader) {
+			defer wg.Done()
+
+			// Save the file using the service layer
+			filePath, err := services.SaveFile(fileHeader)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+
+			// Generate a unique receipt ID and store the receipt metadata
+			receiptID := services.GenerateReceiptID()
+			models.StoreReceipt(receiptID, filePath, userID)
+			receiptIDs[i] = receiptID
+		}(i, fileHeader)
+	}
+
+	// Wait for all the goroutines to finish
+	wg.Wait()
+
+	// Check if any errors occurred
+	for _, err := range errs {
+		if err != nil {
+			http.Error(w, "Error uploading one or more files", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Return the list of receipt IDs
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Receipt uploaded successfully with ID: %s", receiptID)))
+	w.Write([]byte(fmt.Sprintf("Receipts uploaded successfully with IDs: %v", strings.Join(receiptIDs, ", "))))
 }
 
 // GetReceipt retrieves a receipt by ID and serves the file if the user is authorized

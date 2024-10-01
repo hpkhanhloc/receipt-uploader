@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,36 +18,30 @@ import (
 var ErrInvalidImage = errors.New("not a valid image")
 
 // SaveFile handles saving the uploaded file to the local filesystem
-func SaveFile(r *http.Request) (string, error) {
-	err := r.ParseMultipartForm(10 << 20) // Max 10MB
+func SaveFile(fileHeader *multipart.FileHeader) (string, error) {
+	// Open the file
+	file, err := fileHeader.Open()
 	if err != nil {
-		log.Println("Error parsing multipart form:", err)
-		return "", err
-	}
-
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		log.Println("Error retrieving file from request:", err)
 		return "", err
 	}
 	defer file.Close()
 
 	// Check if the file is an image by detecting its MIME type
 	buffer := make([]byte, 512) // Buffer to store the first 512 bytes
-	file.Read(buffer)           // Read the file into the buffer
+	file.Read(buffer)           // Read the file into the buffer to detect content type
 	contentType := http.DetectContentType(buffer)
 
+	// Ensure the content type starts with "image/"
 	if !strings.HasPrefix(contentType, "image/") {
 		return "", ErrInvalidImage
 	}
 
-	// Rewind the file to the beginning for saving
+	// Rewind the file after reading its MIME type
 	file.Seek(0, 0)
 
-	fileID := uuid.New().String()
-	filePath := filepath.Join("uploads", fileID+filepath.Ext(handler.Filename))
-
-	// Create the file on the local filesystem
+	// Create the file on the filesystem
+	fileID := GenerateReceiptID()
+	filePath := filepath.Join("uploads", fileID+filepath.Ext(fileHeader.Filename))
 	f, err := os.Create(filePath)
 	if err != nil {
 		log.Println("Error creating file:", err)

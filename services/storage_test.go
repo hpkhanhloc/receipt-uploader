@@ -19,8 +19,8 @@ func setupTestEnvironment() error {
 	return os.MkdirAll(uploadDir, os.ModePerm)
 }
 
-// Helper function to create a multipart request for file upload from a test file
-func createMultipartRequest(fileName string) (*http.Request, error) {
+// Helper function to create a multipart request and return a *multipart.FileHeader
+func createMultipartRequest(fileName string) (*multipart.FileHeader, error) {
 	// Open the file from the testdata directory
 	filePath := filepath.Join("../testdata/", fileName)
 	file, err := os.Open(filePath)
@@ -51,7 +51,19 @@ func createMultipartRequest(fileName string) (*http.Request, error) {
 	req := httptest.NewRequest(http.MethodPost, "/receipts", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType()) // Set Content-Type for multipart form
 
-	return req, nil
+	// Parse the multipart form to extract the file header
+	err = req.ParseMultipartForm(10 << 20) // Limit to 10MB
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the first file header from the form
+	fileHeaders := req.MultipartForm.File["file"]
+	if len(fileHeaders) > 0 {
+		return fileHeaders[0], nil
+	}
+
+	return nil, errors.New("no file found in request")
 }
 
 // TestSaveFile tests the SaveFile function
