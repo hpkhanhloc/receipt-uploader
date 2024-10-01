@@ -4,8 +4,9 @@ This project is a receipt uploader service for handling image uploads and scalin
 
 ## Features
 
-- Upload images of receipts.
+- Upload single or multiple images of receipts.
 - Resize images to different resolutions (proportional scaling, not stretched).
+- Generate small, medium, and large thumbnails for each uploaded receipt.
 - List all uploaded receipts for a user.
 - Fetch specific receipts by ID, with optional resizing.
 - Built-in unit tests for services, models, and handlers.
@@ -117,16 +118,16 @@ The `X-User-ID` header is used to authenticate the user making the request. Each
     ```
   - In API requests from client-side applications, this header must be included in each API request to identify the user.
 
-### Upload Receipt
+### Upload Receipt (single or multiple)
 
 - **URL**: `/receipts`
 - **Method**: `POST`
 - **Headers**: `X-User-ID`
 - **Content-Type**: `multipart/form-data`
-- **Description**: Upload an image of a receipt. Returns the receipt ID.
+- **Description**: Upload one or more images of a receipt. Returns the list of receipt IDs.
 - **Example**:
   ```bash
-  curl -H "X-User-ID: user123" -F "file=@receipt.jpg" http://localhost:8080/receipts
+  curl -H "X-User-ID: user123" -F "file=@receipt.jpg" -F "file=@receipt2.jpg" http://localhost:8080/receipts
   ```
 
 ### Get Receipt by ID
@@ -149,4 +150,23 @@ The `X-User-ID` header is used to authenticate the user making the request. Each
 - **Example**:
   ```bash
   curl -H "X-User-ID: user123" http://localhost:8080/receipts
+  ```
+
+### Get Thumbnails for a Receipt
+
+- **URL**: `/receipts/{receipt_id}/thumbnails`
+- **Method**: `GET`
+- **Headers**: `X-User-ID`
+- **Description**: Generate and return small, medium, and large thumbnails for a specific receipt. Thumbnails are created concurrently and proportional to the original image.
+- **Example**:
+  ```bash
+  curl -H "X-User-ID: user123" http://localhost:8080/receipts/{receipt_id}/thumbnail
+  ```
+- **Example response**:
+  ```json
+  {
+    "small": "uploads/receipt123_small.jpg",
+    "medium": "uploads/receipt123_medium.jpg",
+    "large": "uploads/receipt123_large.jpg"
+  }
   ```
