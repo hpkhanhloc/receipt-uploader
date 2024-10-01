@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"mime/multipart"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/disintegration/imaging"
 	"github.com/google/uuid"
 )
 
@@ -58,6 +60,24 @@ func SaveFile(fileHeader *multipart.FileHeader) (string, error) {
 
 	log.Println("File saved successfully:", filePath)
 	return filePath, nil
+}
+
+// SaveImage saves the resized image to the specified file path
+func SaveImage(img image.Image, filePath string) error {
+	// Create the file on the filesystem
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// Save the image as a JPEG file
+	err = imaging.Save(img, filePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GenerateReceiptID generates a unique receipt ID

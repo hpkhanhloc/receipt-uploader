@@ -6,6 +6,7 @@ import (
 	"os"
 	"receipt-uploader/handlers"
 	"receipt-uploader/models"
+	"strings"
 )
 
 // Upload directory for receipts
@@ -22,8 +23,8 @@ func main() {
 	}
 
 	// Define routes
-	http.HandleFunc("/receipts", handleReceipts)       // unified route for both POST and GET methods on /receipts
-	http.HandleFunc("/receipts/", handlers.GetReceipt) // GET /receipts/{receipt_id} to retrieve
+	http.HandleFunc("/receipts", handleReceipts)         // unified route for both POST and GET methods on /receipts
+	http.HandleFunc("/receipts/", handleReceiptRequests) // Unified handler for /receipts/{receipt_id} and /receipts/{receipt_id}/thumbnails
 
 	// Start server
 	log.Println("Server running on :8080")
@@ -42,4 +43,22 @@ func handleReceipts(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// handleReceiptRequests handles both /receipts/{receipt_id} and /receipts/{receipt_id}/thumbnails
+func handleReceiptRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if the URL ends with "/thumbnails"
+	if strings.HasSuffix(r.URL.Path, "/thumbnails") {
+		// Handle the thumbnail request
+		handlers.GetThumbnails(w, r)
+		return
+	}
+
+	// Otherwise, handle the receipt retrieval
+	handlers.GetReceipt(w, r)
 }
